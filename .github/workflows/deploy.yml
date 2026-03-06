@@ -2,8 +2,9 @@ name: Nomad Terraform Deploy
 
 on:
   push:
-    paths:
+    branches:
       - main
+  workflow_dispatch:
 
 jobs:
   terraform:
