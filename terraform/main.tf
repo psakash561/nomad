@@ -6,10 +6,9 @@ module "vpc" {
   name = "nomad-vpc"
   cidr = "10.0.0.0/16"
 
-  azs = ["${var.target_region}a", "${var.target_region}b"]
+  azs             = ["${var.target_region}a", "${var.target_region}b"]
   private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
   public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
-}
 
   enable_nat_gateway   = true
   single_nat_gateway   = true
@@ -17,8 +16,7 @@ module "vpc" {
 
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = "1"
-    # Keeping discovery tag for future-proofing, though not required for Managed Nodes
-    "karpenter.sh/discovery"          = "nomad-cluster-v2" 
+    "karpenter.sh/discovery"          = "nomad-cluster-v2"
   }
 
   public_subnet_tags = {
@@ -27,6 +25,7 @@ module "vpc" {
 
   tags = { Project = "Nomad" }
 }
+
 
 # --- 2. GLOBAL DATABASE ---
 resource "aws_dynamodb_table" "nomad_store" {
