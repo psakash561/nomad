@@ -3,8 +3,7 @@ name: Nomad Terraform Deploy
 on:
   push:
     paths:
-      - 'terraform/**'
-      - 'terraform.tfvars'
+      - main
 
 jobs:
   terraform:
