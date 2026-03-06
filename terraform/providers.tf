@@ -25,3 +25,13 @@ provider "aws" {
   alias  = "eu_central_1"
   region = "eu-central-1"
 }
+
+terraform {
+  backend "s3" {
+    bucket         = "akash-nomad-terraform-state"
+    key            = "global/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-lock"
+    encrypt        = true
+  }
+}
