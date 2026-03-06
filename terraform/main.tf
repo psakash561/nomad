@@ -1,7 +1,3 @@
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
 # --- 1. NETWORK (VPC) ---
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
@@ -10,7 +6,7 @@ module "vpc" {
   name = "nomad-vpc"
   cidr = "10.0.0.0/16"
 
-  azs             = slice(data.aws_availability_zones.available.names, 0, 2)
+  azs = ["${var.target_region}a", "${var.target_region}b"]
   private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
   public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
 }
