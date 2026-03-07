@@ -2,8 +2,8 @@ import subprocess
 import scout
 import os
 
-TF_DIR = "terraform"
-TFVARS = "terraform/terraform.tfvars"
+TF_DIR = "."
+TFVARS = "terraform.tfvars"
 
 
 def run(cmd):
