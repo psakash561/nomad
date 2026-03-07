@@ -86,12 +86,11 @@ resource "aws_eks_cluster" "nomad_cluster" {
   lifecycle {
     prevent_destroy = true
     ignore_changes = [
-      vpc_config,
-      version,
-      tags
-    ]
-  }
-
+  vpc_config[0].subnet_ids,
+  version,
+  tags
+]
+ }
 
   vpc_config {
     subnet_ids              = module.vpc.private_subnets
