@@ -47,7 +47,15 @@ resource "aws_dynamodb_table" "nomad_store" {
     type = "S"
   }
 
-  replica { region_name = "us-east-1" }
+  replica {
+    region_name = "us-east-1"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      replica
+    ]
+  }
 }
 
 
