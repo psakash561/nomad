@@ -83,6 +83,10 @@ resource "aws_eks_cluster" "nomad_cluster" {
   role_arn = aws_iam_role.eks_cluster_role.arn
   version  = "1.31"
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
   vpc_config {
     subnet_ids              = module.vpc.private_subnets
     endpoint_public_access  = true
