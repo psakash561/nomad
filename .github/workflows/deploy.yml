@@ -31,7 +31,7 @@ jobs:
          run: pip install boto3
 
        - name: Run Nomad Brain (detect cheapest region)
-         run: python brain.py
+         run: python ../brain.py
 
        - name: Setup Terraform
          uses: hashicorp/setup-terraform@v3
@@ -48,11 +48,11 @@ jobs:
 
        - name: Build Backend Image
          run: |
-           docker build -t nomad-backend:${{ github.sha }} ./app/backend
+           docker build -t nomad-backend:${{ github.sha }} ../app/backend
 
        - name: Build Frontend Image
          run: |
-           docker build -t nomad-frontend:${{ github.sha }} ./app/frontend
+           docker build -t nomad-frontend:${{ github.sha }} ../app/frontend
 
        - name: Tag Backend Image
          run: |
