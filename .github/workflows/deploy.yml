@@ -86,11 +86,17 @@ jobs:
          run: terraform apply -auto-approve
          working-directory: terraform
 
+       - name: Get Terraform Outputs
+         run: |
+          echo "CLUSTER_NAME=$(terraform output -raw cluster_name)" >> $GITHUB_ENV
+          echo "AWS_REGION=$(terraform output -raw cluster_region)" >> $GITHUB_ENV
+         working-directory: terraform
+
        - name: Configure kubectl
          run: |
             aws eks update-kubeconfig \
-             --region ${{ vars.TARGET_REGION }} \
-            --name nomad-cluster-${{ vars.TARGET_REGION }}
+             ---region $AWS_REGION \
+             --name $CLUSTER_NAME
 
        - name: Deploy app to Kubernetes
          run: |
