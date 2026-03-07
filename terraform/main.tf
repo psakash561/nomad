@@ -29,7 +29,7 @@ module "vpc" {
 
 # --- 2. GLOBAL DATABASE ---
 resource "aws_dynamodb_table" "nomad_store" {
-  provider     = aws.eu_central_1
+  provider     =  aws
   name         = "nomad-global-store-v2"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "ID"
@@ -71,7 +71,7 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
 
 # --- 4. EKS CLUSTER ---
 resource "aws_eks_cluster" "nomad_cluster" {
-  name     = "nomad-cluster-v2"
+  name = "nomad-cluster-${var.target_region}"
   role_arn = aws_iam_role.eks_cluster_role.arn
   version  = "1.31"
 

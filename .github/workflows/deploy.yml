@@ -2,8 +2,13 @@ name: Nomad Terraform Deploy
 
 on:
   push:
-    paths:
-      - 'terraform/**'
+    branches:
+      - main
+
+  schedule:
+    - cron: "0 * * * *"
+
+  workflow_dispatch:
 
 jobs:
   terraform:
@@ -14,30 +19,79 @@ jobs:
         working-directory: terraform
 
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v3
+       - name: Checkout Repo
+         uses: actions/checkout@v3
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+       - name: Setup Python
+         uses: actions/setup-python@v4
+         with:
+          python-version: "3.10"
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+       - name: Install Python dependencies
+         run: pip install boto3
 
-      - name: Terraform Init
-        run: terraform init -reconfigure
+       - name: Run Nomad Brain (detect cheapest region)
+         run: python brain.py
 
-      - name: Terraform Validate
-        run: terraform validate
+       - name: Setup Terraform
+         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Refresh
-        run: terraform refresh
+       - name: Configure AWS Credentials
+         uses: aws-actions/configure-aws-credentials@v2
+         with:
+           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+           aws-region: us-east-1
 
-      - name: Terraform Plan
-        run: terraform plan
+       - name: Login to Amazon ECR
+         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
+       - name: Build Backend Image
+         run: |
+           docker build -t nomad-backend:${{ github.sha }} ./app/backend
+
+       - name: Build Frontend Image
+         run: |
+           docker build -t nomad-frontend:${{ github.sha }} ./app/frontend
+
+       - name: Tag Backend Image
+         run: |
+            docker tag nomad-backend:${{ github.sha }} \ ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-backend:latest
+
+       - name: Tag Frontend Image
+         run: |
+           docker tag nomad-frontend:${{ github.sha }} \ ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:latest
+
+       - name: Push Backend Image
+         run: |
+           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-backend:${{ github.sha }} 
+
+       - name: Push Frontend Image
+         run: |
+           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:${{ github.sha }} 
+
+       - name: Terraform Init
+         run: terraform init -reconfigure
+         working-directory: terraform
+
+       - name: Terraform Validate
+         run: terraform validate
+         working-directory: terraform
+
+       - name: Terraform Plan
+         run: terraform plan
+         working-directory: terraform
+
+       - name: Terraform Apply
+         run: terraform apply -auto-approve
+         working-directory: terraform
+
+       - name: Configure kubectl
+         run: |
+            aws eks update-kubeconfig \
+             --region ${{ vars.TARGET_REGION }} \
+            --name nomad-cluster-${{ vars.TARGET_REGION }}
+
+       - name: Deploy app to Kubernetes
+         run: |
+            kubectl apply -f k8s/
