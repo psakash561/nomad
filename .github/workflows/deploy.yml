@@ -30,18 +30,18 @@ jobs:
        - name: Install Python dependencies
          run: pip install boto3
 
-       - name: Run Nomad Brain (detect cheapest region)
-         run: python ../brain.py
-
-       - name: Setup Terraform
-         uses: hashicorp/setup-terraform@v3
-
        - name: Configure AWS Credentials
          uses: aws-actions/configure-aws-credentials@v2
          with:
            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
            aws-region: us-east-1
+
+       - name: Run Nomad Brain (detect cheapest region)
+         run: python ../brain.py
+
+       - name: Setup Terraform
+         uses: hashicorp/setup-terraform@v3
 
        - name: Login to Amazon ECR
          uses: aws-actions/amazon-ecr-login@v2
@@ -56,11 +56,11 @@ jobs:
 
        - name: Tag Backend Image
          run: |
-            docker tag nomad-backend:${{ github.sha }} \ ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-backend:latest
+            docker tag nomad-backend:${{ github.sha }} \ ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-backend:${{ github.sha }} 
 
        - name: Tag Frontend Image
          run: |
-           docker tag nomad-frontend:${{ github.sha }} \ ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:latest
+           docker tag nomad-frontend:${{ github.sha }} \ ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:${{ github.sha }} 
 
        - name: Push Backend Image
          run: |
