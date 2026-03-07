@@ -100,4 +100,4 @@ jobs:
 
        - name: Deploy app to Kubernetes
          run: |
-            kubectl apply -f k8s/
+           kubectl apply -f $GITHUB_WORKSPACE/k8s/
