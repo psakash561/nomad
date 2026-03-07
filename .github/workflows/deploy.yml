@@ -79,11 +79,11 @@ jobs:
          working-directory: terraform
 
        - name: Terraform Plan
-         run: terraform plan
+         run: terraform plan -target=module.vpc -target=aws_dynamodb_table.nomad_store
          working-directory: terraform
 
        - name: Terraform Apply
-         run: terraform apply -auto-approve
+         run: terraform apply -auto-approve -target=module.vpc -target=aws_dynamodb_table.nomad_store
          working-directory: terraform
 
        - name: Get Terraform Outputs
