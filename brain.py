@@ -4,7 +4,7 @@ import os
 
 def get_current_region():
 
-    tfvars_path = "terraform/terraform.tfvars"
+    tfvars_path = "terraform.tfvars"
 
     if not os.path.exists(tfvars_path):
         return None
@@ -18,7 +18,7 @@ def get_current_region():
 
 
 def set_region(region):
-    with open("terraform/terraform.tfvars", "w") as f:
+    with open("terraform.tfvars", "w") as f:
         f.write(f'target_region = "{region}"')
 
     subprocess.run(["git", "add", "."])
