@@ -95,7 +95,7 @@ jobs:
        - name: Configure kubectl
          run: |
             aws eks update-kubeconfig \
-             ---region $AWS_REGION \
+             --region $AWS_REGION \
              --name $CLUSTER_NAME
 
        - name: Deploy app to Kubernetes
