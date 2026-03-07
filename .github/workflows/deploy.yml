@@ -30,6 +30,9 @@ jobs:
        - name: Install Python dependencies
          run: pip install boto3
 
+       - name: Setup Terraform
+         uses: hashicorp/setup-terraform@v3
+
        - name: Configure AWS Credentials
          uses: aws-actions/configure-aws-credentials@v2
          with:
@@ -39,9 +42,6 @@ jobs:
 
        - name: Run Nomad Brain (detect cheapest region)
          run: python ../brain.py
-
-       - name: Setup Terraform
-         uses: hashicorp/setup-terraform@v3
 
        - name: Login to Amazon ECR
          uses: aws-actions/amazon-ecr-login@v2
