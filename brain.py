@@ -1,12 +1,20 @@
 import subprocess
 import scout
-
+import os
 
 def get_current_region():
-    with open("terraform/terraform.tfvars") as f:
+
+    tfvars_path = "terraform/terraform.tfvars"
+
+    if not os.path.exists(tfvars_path):
+        return None
+
+    with open(tfvars_path) as f:
         for line in f:
             if "target_region" in line:
                 return line.split('"')[1]
+
+    return None
 
 
 def set_region(region):
