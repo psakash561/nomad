@@ -56,11 +56,11 @@ jobs:
 
        - name: Tag Backend Image
          run: |
-            docker tag nomad-backend:${{ github.sha }} \ ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-backend:${{ github.sha }} 
+            docker tag nomad-backend:${{ github.sha }}  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-backend:${{ github.sha }} 
 
        - name: Tag Frontend Image
          run: |
-           docker tag nomad-frontend:${{ github.sha }} \ ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:${{ github.sha }} 
+           docker tag nomad-frontend:${{ github.sha }}  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:${{ github.sha }} 
 
        - name: Push Backend Image
          run: |
