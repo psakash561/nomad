@@ -97,6 +97,12 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
   role       = aws_iam_role.node_role.name
 }
 
+resource "aws_eks_cluster" "nomad_cluster" {
+name     = "nomad_cluster-${var.target_region}"
+role_arn = aws_iam_role.eks_cluster_role.arn
+version. = "1.31"
+
+
   # Fixes the "Credentials" error by explicitly trusting your IAM user 
   access_config {
     authentication_mode                         = "API_AND_CONFIG_MAP"
@@ -110,14 +116,8 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
   }
 
   depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
-
-
-# Grants your current AWS user Admin rights in the new region
-resource "aws_eks_access_entry" "admin_access" {
-  cluster_name      = aws_eks_cluster.nomad_cluster.name
-  principal_arn     = data.aws_caller_identity.current.arn
-  type              = "STANDARD"
 }
+
 
 # --- 5. IDENTITY & OIDC (FOR POD PERMISSIONS) ---
 data "tls_certificate" "eks" {
