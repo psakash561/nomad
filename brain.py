@@ -22,11 +22,6 @@ def set_region(region):
     with open("terraform.tfvars", "w") as f:
         f.write(f'target_region = "{region}"')
 
-    # 2. Tell Terraform to use/create a workspace for this region
-    subprocess.run(["terraform", "workspace", "select", region], cwd="terraform")
-    # If workspace doesn't exist, create it:
-    # subprocess.run(["terraform", "workspace", "new", region], cwd="terraform")
-
     subprocess.run(["git", "add", "."])
     subprocess.run(["git", "commit", "-m", f"Nomad migration to {region}"])
     subprocess.run(["git", "push"])
