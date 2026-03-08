@@ -100,7 +100,7 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
 resource "aws_eks_cluster" "nomad_cluster" {
 name     = "nomad_cluster-${var.target_region}"
 role_arn = aws_iam_role.eks_cluster_role.arn
-version. = "1.31"
+version  = "1.31"
 
 
   # Fixes the "Credentials" error by explicitly trusting your IAM user 
