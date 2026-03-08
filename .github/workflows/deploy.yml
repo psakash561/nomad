@@ -73,11 +73,7 @@ jobs:
        - name: Terraform Init
          run: terraform init -reconfigure
          working-directory: terraform
-
-       - name: Terraform Init
-         run: terraform init -reconfigure
-         working-directory: terraform
-
+         
        - name: Auto-Switch Workspace
          run: |
            # 1. Grab the region from tfvars that brain.py updated
