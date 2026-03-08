@@ -1,9 +1,14 @@
+# --- 0. DATA SOURCES ---
+# Automatically gets your AWS Account ID and ARN for the Access Entry
+data "aws_caller_identity" "current" {}
+
 # --- 1. NETWORK (VPC) ---
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.0.0"
 
-  name = "nomad-vpc"
+  # Dynamic name prevents collisions during regional migration
+  name = "nomad-vpc-${var.target_region}"
   cidr = "10.0.0.0/16"
 
   azs             = ["${var.target_region}a", "${var.target_region}b"]
@@ -16,7 +21,7 @@ module "vpc" {
 
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = "1"
-    "karpenter.sh/discovery"          = "nomad-cluster-v2"
+    "karpenter.sh/discovery"          = "nomad-cluster-${var.target_region}"
   }
 
   public_subnet_tags = {
@@ -26,10 +31,8 @@ module "vpc" {
   tags = { Project = "Nomad" }
 }
 
-
 # --- 2. GLOBAL DATABASE ---
 resource "aws_dynamodb_table" "nomad_store" {
-  provider     =  aws
   name         = "nomad-global-store-v2"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "ID"
@@ -38,28 +41,26 @@ resource "aws_dynamodb_table" "nomad_store" {
   stream_enabled   = true
   stream_view_type = "NEW_AND_OLD_IMAGES"
 
-  attribute { 
+  attribute {
     name = "ID"
-    type = "S" 
+    type = "S"
   }
-  attribute { 
+
+  attribute {
     name = "Timestamp"
     type = "S"
   }
 
   replica {
-    region_name = "us-east-1"
+    region_name = "eu-central-1"
   }
 
   lifecycle {
-    ignore_changes = [
-      replica
-    ]
+    ignore_changes = [replica]
   }
-}
+} 
 
-
-# --- 3. EKS CLUSTER ROLE ---
+# --- 3. IAM ROLES (CLUSTER & NODES) ---
 resource "aws_iam_role" "eks_cluster_role" {
   name = "nomad-cluster-role-${var.target_region}"
   assume_role_policy = jsonencode({
@@ -77,42 +78,6 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   role       = aws_iam_role.eks_cluster_role.name
 }
 
-# --- 4. EKS CLUSTER ---
-resource "aws_eks_cluster" "nomad_cluster" {
-  name = "nomad-cluster-${var.target_region}"
-  role_arn = aws_iam_role.eks_cluster_role.arn
-  version  = "1.31"
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes = [
-  vpc_config[0].subnet_ids,
-  version,
-  tags
-]
- }
-
-  vpc_config {
-    subnet_ids              = module.vpc.private_subnets
-    endpoint_public_access  = true
-    endpoint_private_access = true
-  }
-
-  depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
-}
-
-# --- 5. IDENTITY & OIDC ---
-data "tls_certificate" "eks" {
-  url = aws_eks_cluster.nomad_cluster.identity[0].oidc[0].issuer
-}
-
-resource "aws_iam_openid_connect_provider" "eks" {
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
-  url             = aws_eks_cluster.nomad_cluster.identity[0].oidc[0].issuer
-}
-
-# --- 6. NODE IAM ROLE & POLICIES ---
 resource "aws_iam_role" "node_role" {
   name = "NomadEKSNodeRole-${var.target_region}"
   assume_role_policy = jsonencode({
@@ -136,7 +101,46 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
   role       = aws_iam_role.node_role.name
 }
 
-# --- 7. APP DATA PERMISSIONS ---
+# --- 4. EKS CLUSTER WITH ACCESS ENTRIES ---
+resource "aws_eks_cluster" "nomad_cluster" {
+  name     = "nomad-cluster-${var.target_region}"
+  role_arn = aws_iam_role.eks_cluster_role.arn
+  version  = "1.31"
+
+  # Fixes the "Credentials" error by explicitly trusting your IAM user 
+  access_config {
+    authentication_mode                         = "API_AND_CONFIG_MAP"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+
+  vpc_config {
+    subnet_ids              = module.vpc.private_subnets
+    endpoint_public_access  = true
+    endpoint_private_access = true
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
+}
+
+# Grants your current AWS user Admin rights in the new region
+resource "aws_eks_access_entry" "admin_access" {
+  cluster_name      = aws_eks_cluster.nomad_cluster.name
+  principal_arn     = data.aws_caller_identity.current.arn
+  type              = "STANDARD"
+}
+
+# --- 5. IDENTITY & OIDC (FOR POD PERMISSIONS) ---
+data "tls_certificate" "eks" {
+  url = aws_eks_cluster.nomad_cluster.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
+  url             = aws_eks_cluster.nomad_cluster.identity[0].oidc[0].issuer
+}
+
+# --- 6. APP DATA PERMISSIONS (IRSA) ---
 resource "aws_iam_policy" "dynamodb_access" {
   name   = "NomadDynamoDBAccess-${var.target_region}"
   policy = jsonencode({
@@ -162,9 +166,9 @@ module "nomad_db_role" {
   }
 }
 
-# --- 8. MANAGED NODE GROUPS ---
+# --- 7. UPGRADED MANAGED NODE GROUPS (FIXES RAM ISSUES) ---
 
-# System Node: For cluster management and core services
+# System Node: Management services
 resource "aws_eks_node_group" "system_nodes" {
   cluster_name    = aws_eks_cluster.nomad_cluster.name
   node_group_name = "system-pool"
@@ -177,17 +181,16 @@ resource "aws_eks_node_group" "system_nodes" {
     min_size     = 1
   }
 
-  instance_types = ["t3.medium"]
+  # UPGRADED: t3.large (8GB RAM) prevents NodeNotReady crashes [cite: 8]
+  instance_types = ["t3.large"]
   capacity_type  = "ON_DEMAND"
 
-  labels = {
-    "intent" = "control-plane"
-  }
+  labels = { "intent" = "control-plane" }
 
   depends_on = [aws_iam_role_policy_attachment.node_policies]
 }
 
-# Workload Node: For your applications (scaling pool)
+# Workload Node: Application pool
 resource "aws_eks_node_group" "managed_nodes" {
   cluster_name    = aws_eks_cluster.nomad_cluster.name
   node_group_name = "nomad-workload-pool"
@@ -195,22 +198,16 @@ resource "aws_eks_node_group" "managed_nodes" {
   subnet_ids      = module.vpc.private_subnets
 
   scaling_config {
-    desired_size = 2 # Initial 2 nodes
-    max_size     = 5 # Scale up to 5 nodes
+    desired_size = 2 
+    max_size     = 5 
     min_size     = 1
   }
 
-  instance_types = ["t3.medium"]
-  capacity_type  = "SPOT" # Cost-effective scaling
+  # UPGRADED: t3.large provides headroom for 4+ app pods [cite: 9]
+  instance_types = ["t3.large"]
+  capacity_type  = "SPOT" 
 
-  update_config {
-    max_unavailable = 1
-  }
-
-  labels = {
-    "intent" = "apps"
-  }
+  labels = { "intent" = "apps" }
 
   depends_on = [aws_iam_role_policy_attachment.node_policies]
 }
-

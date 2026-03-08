@@ -21,3 +21,10 @@ spec:
         image: 818876620577.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:latest
         ports:
         - containerPort: 80
+        resources:           
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

@@ -74,16 +74,25 @@ jobs:
          run: terraform init -reconfigure
          working-directory: terraform
 
-       - name: Terraform Validate
-         run: terraform validate
+       - name: Terraform Init
+         run: terraform init -reconfigure
          working-directory: terraform
 
-       - name: Terraform Plan
-         run: terraform plan -target=module.vpc -target=aws_dynamodb_table.nomad_store
+       - name: Auto-Switch Workspace
+         run: |
+           # 1. Grab the region from tfvars that brain.py updated
+           TARGET_REG=$(grep target_region terraform.tfvars | cut -d'"' -f2)
+           
+           # 2. Select the workspace; if it doesn't exist, create it
+           terraform workspace select $TARGET_REG || terraform workspace new $TARGET_REG
          working-directory: terraform
 
        - name: Terraform Apply
-         run: terraform apply -auto-approve -target=module.vpc -target=aws_dynamodb_table.nomad_store
+         run: terraform apply -auto-approve
+         working-directory: terraform
+
+       - name: Terraform Validate
+         run: terraform validate
          working-directory: terraform
 
        - name: Get Terraform Outputs
@@ -101,3 +110,22 @@ jobs:
        - name: Deploy app to Kubernetes
          run: |
            kubectl apply -f $GITHUB_WORKSPACE/k8s/
+
+       - name: Destroy Old Workspace
+         run: |
+          # 1. Get the CURRENT (New) region
+          CURRENT_REG=$(grep target_region terraform.tfvars | cut -d'"' -f2)
+          
+          # 2. List all existing workspaces
+          ALL_WORKSPACES=$(terraform workspace list | tr -d '* ')
+          
+          # 3. Loop through and destroy any workspace that IS NOT the current one
+          for ws in $ALL_WORKSPACES; do
+            if [ "$ws" != "$CURRENT_REG" ] && [ "$ws" != "default" ]; then
+              echo "Destroying old environment: $ws"
+              terraform workspace select $ws
+              terraform destroy -auto-approve
+              terraform workspace select $CURRENT_REG
+              terraform workspace delete $ws
+            fi
+          done
