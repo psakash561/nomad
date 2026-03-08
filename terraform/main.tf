@@ -51,10 +51,6 @@ resource "aws_dynamodb_table" "nomad_store" {
     type = "S"
   }
 
-  replica {
-    region_name = "eu-central-1"
-  }
-
   lifecycle {
     ignore_changes = [replica]
   }
@@ -101,12 +97,6 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
   role       = aws_iam_role.node_role.name
 }
 
-# --- 4. EKS CLUSTER WITH ACCESS ENTRIES ---
-resource "aws_eks_cluster" "nomad_cluster" {
-  name     = "nomad-cluster-${var.target_region}"
-  role_arn = aws_iam_role.eks_cluster_role.arn
-  version  = "1.31"
-
   # Fixes the "Credentials" error by explicitly trusting your IAM user 
   access_config {
     authentication_mode                         = "API_AND_CONFIG_MAP"
@@ -120,7 +110,7 @@ resource "aws_eks_cluster" "nomad_cluster" {
   }
 
   depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
-}
+
 
 # Grants your current AWS user Admin rights in the new region
 resource "aws_eks_access_entry" "admin_access" {
