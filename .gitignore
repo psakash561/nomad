@@ -1,14 +1,18 @@
-# Terraform
-**/.terraform/*
-*.tfstate
-*.tfstate.*
-*.tfvars
-.terraform.lock.hcl
+# MacOS
+.DS_Store
 
 # Python
-venv/
 __pycache__/
 *.pyc
+venv/
+.env
 
-# Mac
-.DS_Store
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+crash.log
+
+# IDE
+.vscode/
+.idea/
