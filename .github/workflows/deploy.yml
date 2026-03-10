@@ -100,6 +100,11 @@ jobs:
         run: |
           kubectl apply -f $GITHUB_WORKSPACE/k8s/
 
+      - name: Debug Terraform Workspaces
+        run: |
+         echo "Available workspaces:"
+         terraform workspace list
+
       - name: Destroy Old Workspace
         run: |
           CURRENT_REG=$(grep target_region terraform.tfvars | cut -d'"' -f2)
