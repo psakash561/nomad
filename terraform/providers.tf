@@ -29,7 +29,7 @@ provider "aws" {
 terraform {
   backend "s3" {
     bucket         = "akash-nomad-terraform-state"
-    key            = "global/terraform.tfstate"
+    key            = "nomad/terraform.tfstate"
     region         = "us-east-1"
     use_lockfile   = true
     encrypt        = true

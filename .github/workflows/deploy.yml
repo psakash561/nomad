@@ -7,13 +7,11 @@ concurrency:
 on:
   push:
     branches: [main]
-
   workflow_dispatch: {}
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: terraform
@@ -43,47 +41,49 @@ jobs:
       - name: Run Nomad Brain (detect cheapest region)
         run: python ../brain.py
 
+      - name: Get Target Region
+        run: |
+          TARGET_REG=$(grep target_region terraform.tfvars | cut -d'"' -f2)
+          echo "TARGET_REGION=$TARGET_REG" >> $GITHUB_ENV
+          echo "Deploying to region: $TARGET_REG"
+
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build Backend Image
-        run: |
-          docker build -t nomad-backend:${{ github.sha }} ../app/backend
+        run: docker build -t nomad-backend:${{ github.sha }} ../app/backend
 
       - name: Build Frontend Image
-        run: |
-          docker build -t nomad-frontend:${{ github.sha }} ../app/frontend
+        run: docker build -t nomad-frontend:${{ github.sha }} ../app/frontend
 
       - name: Tag Images
         run: |
           docker tag nomad-backend:${{ github.sha }} \
-          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-backend:${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.TARGET_REGION }}.amazonaws.com/nomad-backend:${{ github.sha }}
 
           docker tag nomad-frontend:${{ github.sha }} \
-          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:${{ github.sha }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.TARGET_REGION }}.amazonaws.com/nomad-frontend:${{ github.sha }}
 
       - name: Push Images
         run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-backend:${{ github.sha }}
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/nomad-frontend:${{ github.sha }}
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.TARGET_REGION }}.amazonaws.com/nomad-backend:${{ github.sha }}
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.TARGET_REGION }}.amazonaws.com/nomad-frontend:${{ github.sha }}
 
       - name: Terraform Init
-        run: terraform init -reconfigure
-
-      - name: Select / Create Workspace
         run: |
-          TARGET_REG=$(grep target_region terraform.tfvars | cut -d'"' -f2)
-
-          echo "Target region: $TARGET_REG"
-
-          terraform workspace select "$TARGET_REG" \
-          || terraform workspace new "$TARGET_REG"
-
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -lock-timeout=300s
+          terraform init \
+            -backend-config="key=nomad/${TARGET_REGION}/terraform.tfstate" \
+            -reconfigure
 
       - name: Terraform Validate
         run: terraform validate
+
+      - name: Terraform Apply
+        run: |
+          terraform apply \
+            -auto-approve \
+            -var="aws_region=${TARGET_REGION}" \
+            -lock-timeout=300s
 
       - name: Get Terraform Outputs
         run: |
@@ -97,26 +97,27 @@ jobs:
             --name $CLUSTER_NAME
 
       - name: Deploy App to Kubernetes
+        run: kubectl apply -f $GITHUB_WORKSPACE/k8s/
+
+      - name: Destroy Previous Region
         run: |
-          kubectl apply -f $GITHUB_WORKSPACE/k8s/
+      
+          TARGET_REGION=$(terraform output -raw cluster_region)
+          echo "Current region: $TARGET_REGION"
 
-      - name: Debug Terraform Workspaces
-        run: |
-         echo "Available workspaces:"
-         terraform workspace list
+          BUCKET="akash-nomad-terraform-state"
+          REGIONS=$(aws s3 ls s3://$BUCKET/nomad/ | awk '{print $2}' | sed 's#/##')
 
-      - name: Destroy Old Workspace
-        run: |
-          CURRENT_REG=$(grep target_region terraform.tfvars | cut -d'"' -f2)
+          for region in $REGIONS; do
+            if [ "$region" != "$TARGET_REGION" ]; then
+              echo "Destroying infrastructure in $region"
 
-          for ws in $(terraform workspace list | tr -d '* '); do
-            if [[ "$ws" != "$CURRENT_REG" && "$ws" != "default" ]]; then
-              echo "Destroying old environment: $ws"
+              terraform init \
+                -backend-config="key=nomad/$region/terraform.tfstate" \
+                -reconfigure
 
-              terraform workspace select "$ws"
-              terraform destroy -auto-approve
-
-              terraform workspace select "$CURRENT_REG"
-              terraform workspace delete "$ws"
+              terraform destroy \
+                -auto-approve \
+                -var="target_region=$region"
             fi
           done
