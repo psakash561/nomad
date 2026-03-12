@@ -132,7 +132,7 @@ resource "aws_iam_openid_connect_provider" "eks" {
 
 # --- 6. APP DATA PERMISSIONS (IRSA) ---
 resource "aws_iam_policy" "dynamodb_access" {
-  name   = "NomadDynamoDBAccess-${var.target_region}"
+  name_prefix = "NomadDynamoDBAccess-${var.target_region}-"
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
