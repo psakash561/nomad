@@ -82,18 +82,18 @@ jobs:
         run: |
           terraform apply \
             -auto-approve \
-            -var="aws_region=${TARGET_REGION}" \
+            -var="target_region"=${TARGET_REGION}" \
             -lock-timeout=300s
 
       - name: Get Terraform Outputs
         run: |
           echo "CLUSTER_NAME=$(terraform output -raw cluster_name)" >> $GITHUB_ENV
-          echo "AWS_REGION=$(terraform output -raw cluster_region)" >> $GITHUB_ENV
+          echo ="TARGET_REGION=$(terraform output -raw cluster_region)" >> $GITHUB_ENV
 
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
-            --region $AWS_REGION \
+            --region $TARGET_REGION \
             --name $CLUSTER_NAME
 
       - name: Deploy App to Kubernetes
