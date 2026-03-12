@@ -82,7 +82,7 @@ jobs:
         run: |
           terraform apply \
             -auto-approve \
-            -var="target_region"=${TARGET_REGION}" \
+            -var="target_region=${TARGET_REGION}" \
             -lock-timeout=300s
 
       - name: Get Terraform Outputs
