@@ -87,8 +87,11 @@ jobs:
 
       - name: Get Terraform Outputs
         run: |
-          echo "CLUSTER_NAME=$(terraform output -raw cluster_name)" >> $GITHUB_ENV
-          echo ="TARGET_REGION=$(terraform output -raw cluster_region)" >> $GITHUB_ENV
+         CLUSTER_NAME=$(terraform output -raw cluster_name)
+         TARGET_REGION=$(terraform output -raw cluster_region)
+
+         echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
+         echo "TARGET_REGION=$TARGET_REGION" >> $GITHUB_ENV
 
       - name: Configure kubectl
         run: |
